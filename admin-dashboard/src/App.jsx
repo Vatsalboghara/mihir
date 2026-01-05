@@ -7,6 +7,8 @@ import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import TurfManagement from './pages/TurfManagement';
+import Bookings from './pages/Bookings';
+import Analytics from './pages/Analytics';
 import { Toaster } from 'sonner';
 
 function DashboardLayout() {
@@ -30,6 +32,8 @@ function App() {
         <Route path="/" element={<DashboardLayout />}>
           <Route index element={<DashboardContent />} />
           <Route path="turf-management" element={<TurfManagement />} />
+          <Route path="bookings" element={<Bookings />} />
+          <Route path="analytics" element={<Analytics />} />
         </Route>
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />

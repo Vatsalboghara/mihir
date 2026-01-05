@@ -8,7 +8,6 @@ export default function Sidebar() {
         { name: 'Dashboard', icon: Home, path: '/' },
         { name: 'Turf Management', icon: Database, path: '/turf-management' },
         { name: 'Bookings', icon: Calendar, path: '/bookings' },
-        { name: 'Customers', icon: Users, path: '/customers' },
         { name: 'Analytics', icon: BarChart3, path: '/analytics' },
     ];
 

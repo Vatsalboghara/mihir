@@ -59,10 +59,29 @@ export default function Login() {
             if (user.email) localStorage.setItem('userEmail', user.email);
 
             // Creating box details from response if available, or just ID
-            const box = data.box || (user.boxId ? { _id: user.boxId } : null);
-            if (box && box._id) {
-                localStorage.setItem('boxId', box._id);
-                localStorage.setItem('boxDetails', JSON.stringify(box));
+            // UPDATED LOGIC based on console output
+            let boxId = null;
+            let boxDetails = null;
+
+            if (data.box && data.box._id) {
+                boxId = data.box._id;
+                boxDetails = data.box;
+            } else if (user.boxId) {
+                boxId = user.boxId;
+            } else if (user.boxSchemas && Array.isArray(user.boxSchemas) && user.boxSchemas.length > 0) {
+                // Taking the first box ID from the array
+                boxId = user.boxSchemas[0];
+            }
+
+            console.log("Extracted Box ID:", boxId);
+
+            if (boxId) {
+                localStorage.setItem('boxId', boxId);
+                if (boxDetails) {
+                    localStorage.setItem('boxDetails', JSON.stringify(boxDetails));
+                }
+            } else {
+                console.warn("No Box ID found in login response");
             }
 
             // Dispatch event for Header update

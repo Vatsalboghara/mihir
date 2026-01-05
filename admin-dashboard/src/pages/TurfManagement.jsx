@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Save, Clock, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
+import { Save, Clock, Trash2, AlertTriangle, Loader2, Plus, X, Phone, MapPin, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function TurfManagement() {
@@ -13,54 +13,133 @@ export default function TurfManagement() {
     const [generalInfo, setGeneralInfo] = useState({
         name: '',
         description: '',
-        pricePerHour: ''
+        pricePerHour: '',
+        phoneNumber: '',
+        location: '',
+        images: [],
+        amenities: []
     });
+    const [newImage, setNewImage] = useState('');
+    const [newAmenity, setNewAmenity] = useState('');
 
     // Operating Hours State
+    // Operating Hours State
     const [operatingHours, setOperatingHours] = useState({
-        openTime: '06:00',
-        closeTime: '23:00'
+        monday: { openTime: '06:00', closeTime: '23:00', isClosed: false },
+        tuesday: { openTime: '06:00', closeTime: '23:00', isClosed: false },
+        wednesday: { openTime: '06:00', closeTime: '23:00', isClosed: false },
+        thursday: { openTime: '06:00', closeTime: '23:00', isClosed: false },
+        friday: { openTime: '06:00', closeTime: '23:00', isClosed: false },
+        saturday: { openTime: '06:00', closeTime: '23:00', isClosed: false },
+        sunday: { openTime: '06:00', closeTime: '23:00', isClosed: false },
     });
 
+    const updateStateFromDetails = (details) => {
+        try {
+            console.log("Updating State from Details:", details);
+            // Pre-fill General Info
+            setGeneralInfo({
+                name: details.name || '',
+                description: details.description || '',
+                pricePerHour: details.pricePerHour || '',
+                phoneNumber: details.phoneno || '',
+                location: details.address?.fullAddress || details.location || '',
+                images: details.images || [],
+                amenities: details.amenities || []
+            });
+
+            // Pre-fill Courts
+            if (details.courts && Array.isArray(details.courts)) {
+                setCourts(details.courts);
+            } else {
+                console.warn("No courts found or invalid format in details");
+            }
+
+            // Pre-fill Operating Hours
+            if (details.operatingHours) {
+                const newHours = { ...operatingHours };
+                Object.keys(newHours).forEach(day => {
+                    if (details.operatingHours[day]) {
+                        newHours[day] = {
+                            openTime: details.operatingHours[day].openTime || '06:00',
+                            closeTime: details.operatingHours[day].closeTime || '23:00',
+                            isClosed: details.operatingHours[day].isClosed || false
+                        };
+                    }
+                });
+                setOperatingHours(newHours);
+            }
+        } catch (e) {
+            console.error("Error updating state from details", e);
+        }
+    };
+
+    const fetchTurfData = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) return; // Silent return or toast?
+
+        // Don't set global loading here to avoid full page spinner on background refresh, 
+        // or Set it if we want to block interaction. Let's use a subtle indicator or just rely on the existing loading state if triggered manually.
+        // For initial load, maybe useful.
+
+        try {
+            console.log("Fetching Turf Data via API...");
+            const response = await axios.get(
+                "https://nonsolidified-annika-criminally.ngrok-free.dev/api/admin/turf",
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "ngrok-skip-browser-warning": "69420",
+                    },
+                }
+            );
+
+            console.log("API Response:", response.data);
+
+            const { data, turfId } = response.data;
+
+            // The user said response format: { data: [...], turfId: "..." }
+            // data is an array of turfs.
+            if (data && data.length > 0) {
+                const turfDetails = data[0];
+                const finalBoxId = turfId || turfDetails._id;
+
+                // Store in localStorage
+                localStorage.setItem('boxDetails', JSON.stringify(turfDetails));
+                localStorage.setItem('boxId', finalBoxId);
+                setBoxId(finalBoxId);
+
+                updateStateFromDetails(turfDetails);
+                toast.success("Turf data refreshed");
+            } else {
+                console.warn("No turf data found in API response");
+            }
+
+        } catch (error) {
+            console.error("Failed to fetch turf data:", error);
+            // toast.error("Failed to load latest turf data");
+        }
+    };
+
     useEffect(() => {
-        // Initial Load - Get boxId and Details from localStorage
+        // Initial Load - Get boxId and Details from localStorage (Fast Load)
         const storedBoxId = localStorage.getItem('boxId');
         const storedDetails = localStorage.getItem('boxDetails');
 
-        if (storedBoxId) {
-            setBoxId(storedBoxId);
+        if (storedBoxId) setBoxId(storedBoxId);
 
-            if (storedDetails) {
-                try {
-                    const details = JSON.parse(storedDetails);
-
-                    // Pre-fill General Info
-                    setGeneralInfo({
-                        name: details.name || '',
-                        description: details.description || '',
-                        pricePerHour: details.pricePerHour || ''
-                    });
-
-                    // Pre-fill Courts
-                    if (details.courts && Array.isArray(details.courts)) {
-                        setCourts(details.courts);
-                    }
-
-                    // Pre-fill Operating Hours
-                    // Checking for common structures (nested object or direct keys)
-                    if (details.operatingHours) {
-                        setOperatingHours({
-                            openTime: details.operatingHours.openTime || '06:00',
-                            closeTime: details.operatingHours.closeTime || '23:00'
-                        });
-                    }
-                } catch (e) {
-                    console.error("Error parsing stored box details", e);
-                }
+        if (storedDetails) {
+            try {
+                console.log("Loading stored details from localStorage:", storedDetails);
+                const details = JSON.parse(storedDetails);
+                updateStateFromDetails(details);
+            } catch (e) {
+                console.error("Error parsing stored box details", e);
             }
-        } else {
-            toast.error("Turf ID not found. Please relogin or register.");
         }
+
+        // Always fetch fresh data
+        fetchTurfData();
     }, []);
 
     const getAuthHeader = () => {
@@ -79,13 +158,19 @@ export default function TurfManagement() {
         setLoading(true);
 
         try {
-            // MATCHING USER PAYLOAD: { name, description, pricePerHour }
+            // MATCHING USER PAYLOAD
             const payload = {
                 name: generalInfo.name,
                 description: generalInfo.description,
-                pricePerHour: Number(generalInfo.pricePerHour)
+                pricePerHour: generalInfo.pricePerHour,
+                phoneno: generalInfo.phoneNumber,
+                location: generalInfo.location, // Assuming backend accepts this for address update
+                images: generalInfo.images,
+                amenities: generalInfo.amenities
             };
             console.log("Updating General Info Payload:", payload);
+            console.log("miludon...", payload.pricePerHour);    
+            
 
             const response = await axios.put(
                 `https://nonsolidified-annika-criminally.ngrok-free.dev/api/admin/update-box-details/${boxId}`,
@@ -93,9 +178,19 @@ export default function TurfManagement() {
                 getAuthHeader()
             );
             console.log("Update General Response:", response.data);
+
+            // UPDATE LOCAL STORAGE AND STATE
+            const updatedBox = response.data.box || response.data.data; // Adjust based on actual API response
+            if (updatedBox) {
+                localStorage.setItem('boxDetails', JSON.stringify(updatedBox));
+                console.log("Updated localStorage with new box details:", updatedBox);
+                // Also update other state if needed, though generalInfo is already controlled
+            }
+
             toast.success("Turf details updated successfully");
         } catch (error) {
             console.error("Update General Error:", error);
+            console.error("Error Response Data:", error.response?.data);
             toast.error(error.response?.data?.message || "Failed to update details");
         } finally {
             setLoading(false);
@@ -125,6 +220,19 @@ export default function TurfManagement() {
                 getAuthHeader()
             );
             console.log("Update Court Response:", response.data);
+
+            // UPDATE LOCAL STORAGE
+            const updatedBox = response.data.box || response.data.data;
+            if (updatedBox) {
+                localStorage.setItem('boxDetails', JSON.stringify(updatedBox));
+                console.log("Updated localStorage after court update");
+
+                // Update state from response if available to be sure
+                if (updatedBox.courts) {
+                    setCourts(updatedBox.courts);
+                }
+            }
+
             toast.success(`Court ${courtId} availability updated`);
         } catch (error) {
             console.error("Update Court Error:", error);
@@ -149,6 +257,14 @@ export default function TurfManagement() {
                 getAuthHeader()
             );
             console.log("Update Hours Response:", response.data);
+
+            // UPDATE LOCAL STORAGE
+            const updatedBox = response.data.box || response.data.data;
+            if (updatedBox) {
+                localStorage.setItem('boxDetails', JSON.stringify(updatedBox));
+                console.log("Updated localStorage after hours update");
+            }
+
             toast.success("Operating hours updated");
         } catch (error) {
             console.error("Update Hours Error:", error);
@@ -186,8 +302,19 @@ export default function TurfManagement() {
     return (
         <div className="p-6 md:p-8 space-y-8 max-w-6xl mx-auto">
             <div>
-                <h1 className="text-3xl font-bold text-foreground">Turf Management</h1>
-                <p className="text-muted-foreground mt-2">Manage your venue details, courts, and policies.</p>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold text-foreground">Turf Management</h1>
+                        <p className="text-muted-foreground mt-2">Manage your venue details, courts, and policies.</p>
+                    </div>
+                    <button
+                        onClick={() => { setLoading(true); fetchTurfData().finally(() => setLoading(false)); }}
+                        className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg text-sm font-medium hover:bg-secondary/80 transition-colors flex items-center gap-2"
+                    >
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />}
+                        Refresh Data
+                    </button>
+                </div>
             </div>
 
             {/* Tabs */}
@@ -210,7 +337,8 @@ export default function TurfManagement() {
             <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
 
                 {activeTab === 'general' && (
-                    <form onSubmit={handleUpdateGeneral} className="space-y-6">
+                    <form onSubmit={handleUpdateGeneral} className="space-y-8">
+                        {/* Basic Info */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-sm font-medium mb-1">Turf Name</label>
@@ -225,11 +353,31 @@ export default function TurfManagement() {
                             <div>
                                 <label className="block text-sm font-medium mb-1">Price Per Hour (₹)</label>
                                 <input
-                                    type="number"
+                                    type="text"
                                     value={generalInfo.pricePerHour}
                                     onChange={(e) => setGeneralInfo({ ...generalInfo, pricePerHour: e.target.value })}
                                     className="w-full px-4 py-2 bg-background border border-border rounded-lg"
                                     placeholder="e.g. 1500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1"><Phone className="w-4 h-4 inline mr-1" /> Phone Number</label>
+                                <input
+                                    type="tel"
+                                    value={generalInfo.phoneNumber}
+                                    onChange={(e) => setGeneralInfo({ ...generalInfo, phoneNumber: e.target.value })}
+                                    className="w-full px-4 py-2 bg-background border border-border rounded-lg"
+                                    placeholder="9876543210"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1"><MapPin className="w-4 h-4 inline mr-1" /> Address</label>
+                                <textarea
+                                    rows="1"
+                                    value={generalInfo.location}
+                                    onChange={(e) => setGeneralInfo({ ...generalInfo, location: e.target.value })}
+                                    className="w-full px-4 py-2 bg-background border border-border rounded-lg"
+                                    placeholder="Full Address"
                                 />
                             </div>
                             <div className="md:col-span-2">
@@ -243,10 +391,112 @@ export default function TurfManagement() {
                                 />
                             </div>
                         </div>
-                        <div className="flex justify-end">
+
+                        {/* Images Section */}
+                        <div className="space-y-4 border-t border-border pt-6">
+                            <h3 className="text-lg font-semibold flex items-center gap-2"><ImageIcon className="w-5 h-5" /> Turf Images</h3>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={newImage}
+                                    onChange={(e) => setNewImage(e.target.value)}
+                                    className="flex-1 px-4 py-2 bg-background border border-border rounded-lg text-sm"
+                                    placeholder="https://example.com/image.jpg"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (newImage.trim()) {
+                                            setGeneralInfo({ ...generalInfo, images: [...generalInfo.images, newImage.trim()] });
+                                            setNewImage('');
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg text-sm font-medium"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {generalInfo.images.map((img, idx) => (
+                                    <div key={idx} className="relative group aspect-video bg-muted rounded-lg overflow-hidden border border-border">
+                                        <img src={img} alt={`Turf ${idx}`} className="w-full h-full object-cover" />
+                                        <button
+                                            type="button"
+                                            onClick={() => setGeneralInfo({ ...generalInfo, images: generalInfo.images.filter((_, i) => i !== idx) })}
+                                            className="absolute top-2 right-2 p-1.5 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Amenities Section */}
+                        <div className="space-y-4 border-t border-border pt-6">
+                            <h3 className="text-lg font-semibold flex items-center gap-2"><Plus className="w-5 h-5" /> Amenities</h3>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={newAmenity}
+                                    onChange={(e) => setNewAmenity(e.target.value)}
+                                    className="flex-1 px-4 py-2 bg-background border border-border rounded-lg text-sm"
+                                    placeholder="Add Amenity (e.g. WiFi, Parking)"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            if (newAmenity.trim()) {
+                                                setGeneralInfo({ ...generalInfo, amenities: [...generalInfo.amenities, { name: newAmenity.trim(), available: true }] });
+                                                setNewAmenity('');
+                                            }
+                                        }
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (newAmenity.trim()) {
+                                            setGeneralInfo({ ...generalInfo, amenities: [...generalInfo.amenities, { name: newAmenity.trim(), available: true }] });
+                                            setNewAmenity('');
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg text-sm font-medium"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                </button>
+                            </div>
+                            <div className="flex flex-wrap gap-3">
+                                {generalInfo.amenities.map((item, idx) => (
+                                    <div key={idx} className="flex items-center gap-3 p-2 bg-card border border-border rounded-lg">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={item.available}
+                                                onChange={() => {
+                                                    const newAmenities = [...generalInfo.amenities];
+                                                    newAmenities[idx].available = !newAmenities[idx].available;
+                                                    setGeneralInfo({ ...generalInfo, amenities: newAmenities });
+                                                }}
+                                                className="rounded border-primary text-primary focus:ring-primary"
+                                            />
+                                            <span className="text-sm">{item.name}</span>
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setGeneralInfo({ ...generalInfo, amenities: generalInfo.amenities.filter((_, i) => i !== idx) })}
+                                            className="text-muted-foreground hover:text-destructive"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end pt-4">
                             <button disabled={loading} type="submit" className="btn-primary flex items-center gap-2">
                                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                                <Save className="w-4 h-4" /> Save Changes
+                                <Save className="w-4 h-4" /> Save General Info
                             </button>
                         </div>
                     </form>
@@ -293,30 +543,75 @@ export default function TurfManagement() {
 
                 {activeTab === 'hours' && (
                     <form onSubmit={handleUpdateHours} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm font-medium mb-1"><Clock className="w-4 h-4 inline mr-1" /> Opening Time</label>
-                                <input
-                                    type="time"
-                                    value={operatingHours.openTime}
-                                    onChange={(e) => setOperatingHours({ ...operatingHours, openTime: e.target.value })}
-                                    className="w-full px-4 py-2 bg-background border border-border rounded-lg"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1"><Clock className="w-4 h-4 inline mr-1" /> Closing Time</label>
-                                <input
-                                    type="time"
-                                    value={operatingHours.closeTime}
-                                    onChange={(e) => setOperatingHours({ ...operatingHours, closeTime: e.target.value })}
-                                    className="w-full px-4 py-2 bg-background border border-border rounded-lg"
-                                />
-                            </div>
+                        <div className="grid grid-cols-1 gap-4">
+                            {Object.keys(operatingHours).map((day) => (
+                                <div key={day} className="p-4 border border-border rounded-lg bg-muted/5">
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+
+                                        <div className="w-32">
+                                            <span className="font-semibold capitalize text-foreground">{day}</span>
+                                        </div>
+
+                                        <div className="flex-1 grid grid-cols-2 gap-4">
+                                            <div className="relative">
+                                                <label className="text-xs text-muted-foreground mb-1 block">Open</label>
+                                                <div className="relative">
+                                                    <Clock className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                                    <input
+                                                        type="time"
+                                                        disabled={operatingHours[day].isClosed}
+                                                        value={operatingHours[day].openTime}
+                                                        onChange={(e) => setOperatingHours({
+                                                            ...operatingHours,
+                                                            [day]: { ...operatingHours[day], openTime: e.target.value }
+                                                        })}
+                                                        className="w-full pl-8 pr-3 py-2 text-sm bg-background border border-border rounded-lg disabled:opacity-50"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="relative">
+                                                <label className="text-xs text-muted-foreground mb-1 block">Close</label>
+                                                <div className="relative">
+                                                    <Clock className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                                    <input
+                                                        type="time"
+                                                        disabled={operatingHours[day].isClosed}
+                                                        value={operatingHours[day].closeTime}
+                                                        onChange={(e) => setOperatingHours({
+                                                            ...operatingHours,
+                                                            [day]: { ...operatingHours[day], closeTime: e.target.value }
+                                                        })}
+                                                        className="w-full pl-8 pr-3 py-2 text-sm bg-background border border-border rounded-lg disabled:opacity-50"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 md:w-32 justify-end">
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    className="sr-only peer"
+                                                    checked={!operatingHours[day].isClosed}
+                                                    onChange={(e) => setOperatingHours({
+                                                        ...operatingHours,
+                                                        [day]: { ...operatingHours[day], isClosed: !e.target.checked }
+                                                    })}
+                                                />
+                                                <div className="w-9 h-5 bg-muted-foreground/30 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
+                                                <span className="ml-2 text-sm font-medium text-muted-foreground w-12">
+                                                    {!operatingHours[day].isClosed ? 'Open' : 'Closed'}
+                                                </span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                        <div className="flex justify-end">
+                        <div className="flex justify-end pt-4">
                             <button disabled={loading} type="submit" className="btn-primary flex items-center gap-2">
                                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                                <Save className="w-4 h-4" /> Update Hours
+                                <Save className="w-4 h-4" /> Update Weekly Schedule
                             </button>
                         </div>
                     </form>
