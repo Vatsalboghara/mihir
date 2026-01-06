@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { Lock, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { AUTH_API_URL } from '../config/api';
 
 export default function ResetPassword() {
-    const { token } = useParams();
+    const [searchParams] = useSearchParams();
+    const token = searchParams.get('resetToken');
     console.log(token);
 
     const navigate = useNavigate();

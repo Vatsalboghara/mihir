@@ -1,39 +1,15 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Calendar, Search, Filter, Download, Eye, MoreHorizontal, Loader2, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { useState } from 'react';
+import { useTurf } from '../context/TurfContext';
+import { Calendar, Search, Filter, Download, Eye, MoreHorizontal, Loader2, CheckCircle, XCircle, Clock, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import OfflineBookingDrawer from '../components/OfflineBookingDrawer';
 
 export default function Bookings() {
-    const [bookings, setBookings] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { bookings, loading, refreshData: fetchBookings } = useTurf();
     const [filterStatus, setFilterStatus] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedBooking, setSelectedBooking] = useState(null);
-
-    useEffect(() => {
-        fetchBookings();
-    }, []);
-
-    const fetchBookings = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get('https://nonsolidified-annika-criminally.ngrok-free.dev/api/admin/myturfbooking', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    "ngrok-skip-browser-warning": "69420",
-                }
-            });
-
-            if (response.data.success) {
-                setBookings(response.data.bookings);
-            }
-        } catch (error) {
-            console.error('Error fetching bookings:', error);
-            toast.error('Failed to fetch bookings');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
     const handleExport = () => {
         if (filteredBookings.length === 0) {
@@ -112,6 +88,9 @@ export default function Bookings() {
                     <p className="text-muted-foreground mt-2">Manage and view all your turf bookings</p>
                 </div>
                 <div className="flex items-center gap-3">
+                    <button onClick={() => setIsDrawerOpen(true)} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm">
+                        <Plus className="w-4 h-4" /> New Booking
+                    </button>
                     <button onClick={handleExport} className="px-4 py-2 bg-card border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors flex items-center gap-2">
                         <Download className="w-4 h-4" /> Export
                     </button>
@@ -120,6 +99,11 @@ export default function Bookings() {
                     </button>
                 </div>
             </div>
+
+            <OfflineBookingDrawer
+                isOpen={isDrawerOpen}
+                onClose={() => setIsDrawerOpen(false)}
+            />
 
             {/* Filters */}
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-card p-4 rounded-xl border border-border shadow-sm">

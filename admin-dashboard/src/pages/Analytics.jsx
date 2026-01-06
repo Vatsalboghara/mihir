@@ -1,88 +1,12 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useTurf } from '../context/TurfContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
 import { Calendar, TrendingUp, Clock, Activity, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Analytics() {
-    const [analytics, setAnalytics] = useState({
-        totalEarnings: 0,
-        totalBookings: 0,
-        upcomingBookings: 0
-    });
-    const [bookingData, setBookingData] = useState([]);
-    const [timeSlotData, setTimeSlotData] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                if (!token) return;
-
-                const headers = {
-                    Authorization: `Bearer ${token}`,
-                    "ngrok-skip-browser-warning": "69420",
-                };
-
-                // Fetch Analytics
-                const analyticsRes = await axios.get('https://nonsolidified-annika-criminally.ngrok-free.dev/api/admin/analytics', { headers });
-                if (analyticsRes.data.success) {
-                    setAnalytics(analyticsRes.data.data);
-                }
-
-                // Fetch Bookings for Charts
-                const bookingsRes = await axios.get('https://nonsolidified-annika-criminally.ngrok-free.dev/api/admin/myturfbooking', { headers });
-                if (bookingsRes.data.success) {
-                    processBookingData(bookingsRes.data.bookings);
-                }
-
-            } catch (error) {
-                console.error("Failed to fetch analytics data:", error);
-                toast.error("Failed to load analytics");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, []);
-
-    const processBookingData = (bookings) => {
-        // 1. Weekly Data
-        const last7Days = Array.from({ length: 7 }, (_, i) => {
-            const d = new Date();
-            d.setDate(d.getDate() - (6 - i));
-            return d;
-        });
-
-        const weeklyData = last7Days.map(date => {
-            const dateStr = date.toISOString().split('T')[0];
-            const count = bookings.filter(b => b.date === dateStr).length;
-            return {
-                name: date.toLocaleDateString('en-US', { weekday: 'short' }),
-                bookings: count,
-                fullDate: dateStr
-            };
-        });
-        setBookingData(weeklyData);
-
-        // 2. Peak Hours Data
-        const timeCounts = {};
-        bookings.forEach(booking => {
-            const time = booking.startTime;
-            if (time) {
-                timeCounts[time] = (timeCounts[time] || 0) + 1;
-            }
-        });
-
-        const sortedTimeData = Object.entries(timeCounts)
-            .map(([time, count]) => ({ time, count }))
-            .sort((a, b) => {
-                return parseInt(a.time.replace(':', '')) - parseInt(b.time.replace(':', ''));
-            });
-        setTimeSlotData(sortedTimeData);
-    };
+    const { analytics, processedCharts, loading } = useTurf();
+    const { weeklyData: bookingData, timeSlotData } = processedCharts;
 
     return (
         <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto">

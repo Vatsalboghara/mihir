@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useTurf } from '../context/TurfContext';
 import { Save, Clock, Trash2, AlertTriangle, Loader2, Plus, X, Phone, MapPin, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { API_BASE_URL } from '../config/api';
 
 export default function TurfManagement() {
+    const { turfDetails, refreshData, updateTurfDetails } = useTurf();
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('general');
     const [boxId, setBoxId] = useState('');
@@ -34,6 +37,7 @@ export default function TurfManagement() {
         sunday: { openTime: '06:00', closeTime: '23:00', isClosed: false },
     });
 
+
     const updateStateFromDetails = (details) => {
         try {
             console.log("Updating State from Details:", details);
@@ -51,19 +55,37 @@ export default function TurfManagement() {
             // Pre-fill Courts
             if (details.courts && Array.isArray(details.courts)) {
                 setCourts(details.courts);
-            } else {
-                console.warn("No courts found or invalid format in details");
             }
 
             // Pre-fill Operating Hours
             if (details.operatingHours) {
-                const newHours = { ...operatingHours };
+                // Default structure to ensure clean state updates
+                const defaultHours = {
+                    monday: { openTime: '06:00', closeTime: '23:00', isClosed: false },
+                    tuesday: { openTime: '06:00', closeTime: '23:00', isClosed: false },
+                    wednesday: { openTime: '06:00', closeTime: '23:00', isClosed: false },
+                    thursday: { openTime: '06:00', closeTime: '23:00', isClosed: false },
+                    friday: { openTime: '06:00', closeTime: '23:00', isClosed: false },
+                    saturday: { openTime: '06:00', closeTime: '23:00', isClosed: false },
+                    sunday: { openTime: '06:00', closeTime: '23:00', isClosed: false },
+                };
+
+                const newHours = JSON.parse(JSON.stringify(defaultHours)); // Deep copy
+
                 Object.keys(newHours).forEach(day => {
-                    if (details.operatingHours[day]) {
+                    // Try exact match or capitalized match to be safe
+                    const backendData = details.operatingHours[day] || details.operatingHours[day.charAt(0).toUpperCase() + day.slice(1)];
+
+                    if (backendData) {
+                        const openTime = backendData.open || backendData.openTime || '06:00';
+                        const closeTime = backendData.close || backendData.closeTime || '23:00';
+                        // Handle isClosed specifically as it might be boolean or string in some legacy dbs
+                        const isClosed = backendData.isClosed === true || backendData.isClosed === 'true';
+
                         newHours[day] = {
-                            openTime: details.operatingHours[day].openTime || '06:00',
-                            closeTime: details.operatingHours[day].closeTime || '23:00',
-                            isClosed: details.operatingHours[day].isClosed || false
+                            openTime,
+                            closeTime,
+                            isClosed
                         };
                     }
                 });
@@ -74,73 +96,26 @@ export default function TurfManagement() {
         }
     };
 
-    const fetchTurfData = async () => {
-        const token = localStorage.getItem('token');
-        if (!token) return; // Silent return or toast?
-
-        // Don't set global loading here to avoid full page spinner on background refresh, 
-        // or Set it if we want to block interaction. Let's use a subtle indicator or just rely on the existing loading state if triggered manually.
-        // For initial load, maybe useful.
-
-        try {
-            console.log("Fetching Turf Data via API...");
-            const response = await axios.get(
-                "https://nonsolidified-annika-criminally.ngrok-free.dev/api/admin/turf",
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        "ngrok-skip-browser-warning": "69420",
-                    },
-                }
-            );
-
-            console.log("API Response:", response.data);
-
-            const { data, turfId } = response.data;
-
-            // The user said response format: { data: [...], turfId: "..." }
-            // data is an array of turfs.
-            if (data && data.length > 0) {
-                const turfDetails = data[0];
-                const finalBoxId = turfId || turfDetails._id;
-
-                // Store in localStorage
-                localStorage.setItem('boxDetails', JSON.stringify(turfDetails));
-                localStorage.setItem('boxId', finalBoxId);
-                setBoxId(finalBoxId);
-
-                updateStateFromDetails(turfDetails);
-                toast.success("Turf data refreshed");
-            } else {
-                console.warn("No turf data found in API response");
-            }
-
-        } catch (error) {
-            console.error("Failed to fetch turf data:", error);
-            // toast.error("Failed to load latest turf data");
-        }
-    };
-
+    // Sync state with turfDetails from Context
     useEffect(() => {
-        // Initial Load - Get boxId and Details from localStorage (Fast Load)
-        const storedBoxId = localStorage.getItem('boxId');
-        const storedDetails = localStorage.getItem('boxDetails');
+        if (turfDetails) {
+            setBoxId(turfDetails._id || localStorage.getItem('boxId'));
+            updateStateFromDetails(turfDetails);
+        } else {
+            // Fallback to localStorage if context is empty (e.g. reload)
+            const storedBoxId = localStorage.getItem('boxId');
+            const storedDetails = localStorage.getItem('boxDetails');
 
-        if (storedBoxId) setBoxId(storedBoxId);
-
-        if (storedDetails) {
-            try {
-                console.log("Loading stored details from localStorage:", storedDetails);
-                const details = JSON.parse(storedDetails);
-                updateStateFromDetails(details);
-            } catch (e) {
-                console.error("Error parsing stored box details", e);
+            if (storedBoxId) setBoxId(storedBoxId);
+            if (storedDetails) {
+                try {
+                    updateStateFromDetails(JSON.parse(storedDetails));
+                } catch (e) {
+                    console.error("Error parsing stored details", e);
+                }
             }
         }
-
-        // Always fetch fresh data
-        fetchTurfData();
-    }, []);
+    }, [turfDetails]);
 
     const getAuthHeader = () => {
         const token = localStorage.getItem('token');
@@ -169,11 +144,11 @@ export default function TurfManagement() {
                 amenities: generalInfo.amenities
             };
             console.log("Updating General Info Payload:", payload);
-            console.log("miludon...", payload.pricePerHour);    
-            
+            console.log("miludon...", payload.pricePerHour);
+
 
             const response = await axios.put(
-                `https://nonsolidified-annika-criminally.ngrok-free.dev/api/admin/update-box-details/${boxId}`,
+                `${API_BASE_URL}/update-box-details/${boxId}`,
                 payload,
                 getAuthHeader()
             );
@@ -215,7 +190,7 @@ export default function TurfManagement() {
             console.log("Updating Court Availability Payload:", payload);
 
             const response = await axios.put(
-                `https://nonsolidified-annika-criminally.ngrok-free.dev/api/admin/update-court-availability/${boxId}`,
+                `${API_BASE_URL}/update-court-availability/${boxId}`,
                 payload,
                 getAuthHeader()
             );
@@ -248,11 +223,21 @@ export default function TurfManagement() {
         setLoading(true);
 
         try {
-            const payload = { ...operatingHours };
-            console.log("Updating Hours Payload:", payload);
+            // Transform state (openTime/closeTime) to API expectation (open/close)
+            const payload = {};
+            Object.keys(operatingHours).forEach(day => {
+                const dayData = operatingHours[day];
+                payload[day] = {
+                    open: dayData.openTime,
+                    close: dayData.closeTime,
+                    isClosed: dayData.isClosed
+                };
+            });
+
+            console.log("🚀 Sending Update Hours Payload:", JSON.stringify(payload, null, 2));
 
             const response = await axios.put(
-                `https://nonsolidified-annika-criminally.ngrok-free.dev/api/admin/update-operating-hours/${boxId}`,
+                `${API_BASE_URL}/update-operating-hours/${boxId}`,
                 payload,
                 getAuthHeader()
             );
@@ -261,9 +246,20 @@ export default function TurfManagement() {
             // UPDATE LOCAL STORAGE
             const updatedBox = response.data.box || response.data.data;
             if (updatedBox) {
+                console.log("🔄 Updated Box from Response:", JSON.stringify(updatedBox.operatingHours, null, 2));
                 localStorage.setItem('boxDetails', JSON.stringify(updatedBox));
-                console.log("Updated localStorage after hours update");
+
+                // CRITICAL FIX: Manually update context with the correct response
+                // iterating refreshData() here causes a race condition with stale data from the server
+                updateTurfDetails(updatedBox);
+
+                console.log("💾 Updated localStorage after hours update");
+            } else {
+                console.warn("⚠️ No box data in response to update local storage");
             }
+
+            // We can still trigger a background refresh if needed, but the manual update ensures UI correctness immediately
+            // refreshData(); 
 
             toast.success("Operating hours updated");
         } catch (error) {
@@ -281,8 +277,8 @@ export default function TurfManagement() {
         setLoading(true);
         try {
             console.log("Deleting Box:", boxId);
-            const response = await axios.delete(
-                `https://nonsolidified-annika-criminally.ngrok-free.dev/api/admin/delete-box/${boxId}`,
+            const response = await axios.put(
+                `${API_BASE_URL}/update-operating-hours/${boxId}`,
                 getAuthHeader()
             );
             console.log("Delete Response:", response.data);
@@ -308,7 +304,7 @@ export default function TurfManagement() {
                         <p className="text-muted-foreground mt-2">Manage your venue details, courts, and policies.</p>
                     </div>
                     <button
-                        onClick={() => { setLoading(true); fetchTurfData().finally(() => setLoading(false)); }}
+                        onClick={() => { refreshData(); }}
                         className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg text-sm font-medium hover:bg-secondary/80 transition-colors flex items-center gap-2"
                     >
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />}

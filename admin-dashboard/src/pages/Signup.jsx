@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
+import { AUTH_API_URL } from '../config/api';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Building2, User, ArrowRight, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -94,7 +95,7 @@ export default function Signup() {
                 ...formData.courts,
                 {
                     courtNumber: formData.courts.length + 1,
-                    courtName: `Court ${formData.courts.length + 1}`,
+                    courtName: `Court ${formData.courts.length + 1} `,
                     surfaceType: "Artificial Turf",
                     isAvailable: true,
                     maxPlayers: 10,
@@ -157,7 +158,7 @@ export default function Signup() {
                 phoneNumber: formData.phoneNumber
             };
 
-            const response = await axios.post('https://nonsolidified-annika-criminally.ngrok-free.dev/api/auth/signup', payload);
+            const response = await axios.post(`${AUTH_API_URL}/signup`, payload);
             console.log('User Registered:', response.data);
 
             if (response.data.token) {
@@ -208,13 +209,13 @@ export default function Signup() {
             const config = {
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token && { 'Authorization': `Bearer ${token}` })
+                    ...(token && { 'Authorization': `Bearer ${token} ` })
                 }
             };
 
             console.log("Sending Final Payload:", payload); // Debugging
 
-            const response = await axios.post('https://nonsolidified-annika-criminally.ngrok-free.dev/api/auth/admin', payload, config);
+            const response = await axios.post(`${AUTH_API_URL}/admin`, payload, config);
             console.log('Business Registered:', response.data);
 
             if (response.data && response.data.box && response.data.box._id) {
@@ -261,15 +262,15 @@ export default function Signup() {
 
                     {/* Stepper */}
                     <div className="flex items-center gap-4 mb-8">
-                        <div className={`flex items-center gap-2 ${step === 1 ? 'text-primary' : 'text-primary/70'}`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 font-bold ${step === 1 ? 'border-primary bg-primary/10' : 'border-primary/30 bg-primary/5'}`}>
+                        <div className={`flex items - center gap - 2 ${step === 1 ? 'text-primary' : 'text-primary/70'} `}>
+                            <div className={`w - 8 h - 8 rounded - full flex items - center justify - center border - 2 font - bold ${step === 1 ? 'border-primary bg-primary/10' : 'border-primary/30 bg-primary/5'} `}>
                                 {step > 1 ? <CheckCircle2 className="w-5 h-5" /> : '1'}
                             </div>
                             <span className="font-semibold text-sm">EMAIL & PASSWORD</span>
                         </div>
                         <div className="w-12 h-[2px] bg-border"></div>
-                        <div className={`flex items-center gap-2 ${step === 2 ? 'text-primary' : 'text-muted-foreground'}`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 font-bold ${step === 2 ? 'border-primary bg-primary/10' : 'border-border'}`}>
+                        <div className={`flex items - center gap - 2 ${step === 2 ? 'text-primary' : 'text-muted-foreground'} `}>
+                            <div className={`w - 8 h - 8 rounded - full flex items - center justify - center border - 2 font - bold ${step === 2 ? 'border-primary bg-primary/10' : 'border-border'} `}>
                                 2
                             </div>
                             <span className="font-semibold text-sm">BUSINESS DETAILS</span>
@@ -588,7 +589,6 @@ export default function Signup() {
                                                     type="button"
                                                     onClick={() => removeCourt(index)}
                                                     className="absolute top-2 right-2 p-1 text-destructive hover:bg-destructive/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                                                    title="Remove Court"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>

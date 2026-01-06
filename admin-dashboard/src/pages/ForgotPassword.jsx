@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Mail, ArrowRight, Loader2, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { AUTH_API_URL } from '../config/api';
 
 export default function ForgotPassword() {
     const [email, setEmail] = useState('');

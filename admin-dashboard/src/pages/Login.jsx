@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { Mail, Lock, Loader2, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { AUTH_API_URL } from '../config/api';
 
 export default function Login() {
     const navigate = useNavigate();

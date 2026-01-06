@@ -1,92 +1,13 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useTurf } from '../context/TurfContext';
 import { Users, Calendar, IndianRupee, Activity } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import StatCard from './StatCard';
 import HeroSection from './HeroSection';
 
 export default function DashboardContent() {
-    const [analytics, setAnalytics] = useState({
-        totalEarnings: 0,
-        totalBookings: 0,
-        upcomingBookings: 0
-    });
-    const [bookingData, setBookingData] = useState([]);
-    const [timeSlotData, setTimeSlotData] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                if (!token) return;
-
-                const headers = {
-                    Authorization: `Bearer ${token}`,
-                    "ngrok-skip-browser-warning": "69420",
-                };
-
-                // Fetch Analytics
-                const analyticsRes = await axios.get('https://nonsolidified-annika-criminally.ngrok-free.dev/api/admin/analytics', { headers });
-                if (analyticsRes.data.success) {
-                    setAnalytics(analyticsRes.data.data);
-                }
-
-                // Fetch Bookings for Chart
-                const bookingsRes = await axios.get('https://nonsolidified-annika-criminally.ngrok-free.dev/api/admin/myturfbooking', { headers });
-                if (bookingsRes.data.success) {
-                    processBookingData(bookingsRes.data.bookings);
-                }
-
-            } catch (error) {
-                console.error("Failed to fetch dashboard data:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, []);
-
-    const processBookingData = (bookings) => {
-        const last7Days = Array.from({ length: 7 }, (_, i) => {
-            const d = new Date();
-            d.setDate(d.getDate() - (6 - i));
-            return d;
-        });
-
-        const chartData = last7Days.map(date => {
-            const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
-            // Assuming booking.date is in YYYY-MM-DD format based on previous file view
-            // If it's different, we might need to adjust. Bookings.jsx uses booking.date directly.
-            const count = bookings.filter(b => b.date === dateStr).length;
-            return {
-                name: date.toLocaleDateString('en-US', { weekday: 'short' }), // Mon, Tue
-                bookings: count,
-                fullDate: dateStr
-            };
-        });
-
-        setBookingData(chartData);
-
-        // Process Peak Hours Data
-        const timeCounts = {};
-        bookings.forEach(booking => {
-            const time = booking.startTime; // Assuming "HH:mm" format
-            if (time) {
-                timeCounts[time] = (timeCounts[time] || 0) + 1;
-            }
-        });
-
-        const sortedTimeData = Object.entries(timeCounts)
-            .map(([time, count]) => ({ time, count }))
-            .sort((a, b) => {
-                // Sort by time (06:00 < 07:00)
-                return parseInt(a.time.replace(':', '')) - parseInt(b.time.replace(':', ''));
-            });
-
-        setTimeSlotData(sortedTimeData);
-    };
+    const { analytics, processedCharts, loading, bookings } = useTurf();
+    const { weeklyData, timeSlotData } = processedCharts;
 
     const stats = [
         {
@@ -143,7 +64,7 @@ export default function DashboardContent() {
                                 <div className="h-full flex items-center justify-center text-muted-foreground">Loading chart...</div>
                             ) : (
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={bookingData}>
+                                    <BarChart data={weeklyData}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                                         <XAxis
                                             dataKey="name"

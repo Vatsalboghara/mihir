@@ -10,6 +10,7 @@ import TurfManagement from './pages/TurfManagement';
 import Bookings from './pages/Bookings';
 import Analytics from './pages/Analytics';
 import { Toaster } from 'sonner';
+import { TurfProvider } from './context/TurfContext';
 
 function DashboardLayout() {
   return (
@@ -28,19 +29,21 @@ function DashboardLayout() {
 function App() {
   return (
     <>
-      <Routes>
-        <Route path="/" element={<DashboardLayout />}>
-          <Route index element={<DashboardContent />} />
-          <Route path="turf-management" element={<TurfManagement />} />
-          <Route path="bookings" element={<Bookings />} />
-          <Route path="analytics" element={<Analytics />} />
-        </Route>
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password/:token" element={<ResetPassword />} />
-      </Routes>
-      <Toaster richColors position="top-center" />
+      <TurfProvider>
+        <Routes>
+          <Route path="/" element={<DashboardLayout />}>
+            <Route index element={<DashboardContent />} />
+            <Route path="turf-management" element={<TurfManagement />} />
+            <Route path="bookings" element={<Bookings />} />
+            <Route path="analytics" element={<Analytics />} />
+          </Route>
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
+        </Routes>
+        <Toaster richColors position="top-center" />
+      </TurfProvider>
     </>
   );
 }
